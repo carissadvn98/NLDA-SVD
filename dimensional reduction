@@ -1,0 +1,56 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import seaborn as sns
+import pandas as pd
+import pathlib
+import math
+from numpy.linalg import eig
+import scipy.linalg
+from scipy.linalg import null_space
+from numpy.linalg import eig
+#input training data
+path = r'D:/Colon_train.xlsx'
+df = pd.read_excel(path)
+dataset = df.copy()
+#defining training data
+y=dataset['Class']
+X=dataset.drop(['Class'],axis=1)
+y=y.to_numpy()
+X=X.to_numpy()
+n_samples, n_features = X.shape
+classes = np.unique(y)
+n_classes = len(classes) 
+#Calculating the Total Scatter Matrix, Within Class Scatter Matrix, and Between Class Scatter Matrix
+X1 = X[:12,:]
+X2 = X[12:44,:]
+##local and global average
+m  = np.mean(X, axis=0)
+m1 = np.mean(X1,axis=0)
+m2 = np.mean(X2,axis=0)
+I = np.ones((n_samples,n_features)) 
+e = m * I
+##Ht,Hw,Hb
+Ht = (X - e)
+Hw1 = X1 - (m1*I[:12,:])
+Hw2 = X2 - (m2*I[12:44,:])
+Hw = (np.concatenate((Hw1, Hw2), axis=0))
+Hb1 = math.sqrt(12)*(m1*I[:1,:]-m*I[:1,:])
+Hb2 = math.sqrt(32)*(m2*I[:1,:]-m*I[:1,:])
+Hb = (np.concatenate((Hb1, Hb2), axis=0))
+#Sw,Sb,St
+Sw = Hw.T@Hw
+Sb = Hb.T@Hb
+St = Ht.T@Ht
+#NLDA-SVD
+print("Rank St: ", np.linalg.matrix_rank(St))
+U, S, Vt =np.linalg.svd(Ht.T)
+U1 = U[:,:43]
+Sb_ = U1.T @ Sb @ U1
+Sw_ = U1.T @ Sw @ U1
+St_ = U1.T @ St @ U1
+W = null_space(Sw_)
+MM = W.T @ Sb_ @ W
+e_value,M=np.linalg.eig(MM)
+G_svd = U1 @ W @ M
