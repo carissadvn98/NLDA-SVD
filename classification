@@ -1,0 +1,60 @@
+#input testing dataset
+path_ = r'D:/Colon_test.xlsx'
+df_ = pd.read_excel(path_)
+dataset = df_.copy()
+#defining testing dataset
+yy=dataset['Class']
+XX=dataset.drop(['Class'],axis=1)
+y_=yy.to_numpy()
+X_=XX.to_numpy()
+#Projecting data (testing) into the projection room
+LD = X_ @ G_svd
+#Classify data using LDA classifier
+class LDA:
+    ## Fitting the model 
+    def fit(self, LD, y_):
+        ## Record info
+        self.N, self.D = LD.shape
+        self.LD = LD
+        self.y = y_
+        ## Get prior probabilities 
+        self.unique_y, unique_y_counts = np.unique(self.y, return_counts = True) # returns unique y and counts
+        self.pi_ks = unique_y_counts/self.N
+        ## Get mu for each class and overall Sigma
+        self.mu_ks = []
+        self.Sigma = np.zeros((self.D, self.D))        
+        for i, k in enumerate(self.unique_y): 
+            LD_k = self.LD[self.y == k]
+            mu_k = LD_k.mean(0).reshape(self.D, 1)
+            self.mu_ks.append(mu_k)
+            for x_n in LD_k:
+                x_n = x_n.reshape(-1,1)
+                x_n_minus_mu_k = (x_n - mu_k)
+                self.Sigma += np.dot(x_n_minus_mu_k, x_n_minus_mu_k.T)
+        self.Sigma /= self.N
+    ## Making classifications
+    def _mvn_density(self, x_n, mu_k, Sigma):
+        x_n_minus_mu_k = (x_n - mu_k)
+        density = np.exp(-(1/2)*x_n_minus_mu_k.T @ np.linalg.inv(Sigma) @ x_n_minus_mu_k)
+        return density    
+    def classify(self, LD_test):
+        y_n = np.empty(len(LD_test))
+        for i, x_n in enumerate(LD_test):
+            x_n = x_n.reshape(-1, 1)
+            p_ks = np.empty(len(self.unique_y))
+            for j, k in enumerate(self.unique_y):
+                p_x_given_y = self._mvn_density(x_n, self.mu_ks[j], self.Sigma)
+                p_y_given_x = self.pi_ks[j]*p_x_given_y
+                p_ks[j] = p_y_given_x
+            y_n[i] = self.unique_y[np.argmax(p_ks)]
+        return y_n
+#Calculating Classification Accuracy
+lda = LDA()
+lda.fit(LD, y_)
+yhat = lda.classify(LD)
+np.mean(yhat == y_)
+#confusion matrix
+cm = confusion_matrix(yhat, y_)
+cm_display = ConfusionMatrixDisplay(confusion_matrix=cm)
+cm_display.plot()
+plt.show()
